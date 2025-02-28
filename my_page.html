@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8" />
+
+<link href="/css/reset.css" th:href="@{/css/reset.css}" rel="stylesheet" />
+<link href="/css/style.css" th:href="@{/css/style.css}" rel="stylesheet" />
+
+<title>NOVA</title>
+</head>
+<body>
+
+<header th:insert="fragments/page_header::pageHeader"></header>
+
+<main>
+
+  <div class="container">
+    <h2>マイページ</h2>
+    
+    <table class="myPage">
+      <tr>
+        <th>氏名</th>
+        <td>
+          <span class="familyName" th:text="${user.familyName}">山田</span>
+          <span class="firstName" th:text="${user.firstName}">太郎</span>
+        </td>
+      </tr>
+      <tr>
+        <th>氏名ふりがな</th>
+        <td>
+          <span class="familyNameKana" th:text="${user.familyNameKana}">やまだ</span>
+          <span class="firstNameKana" th:text="${user.firstNameKana}">たろう</span>
+        </td>
+      </tr>
+      <tr>
+        <th>性別</th>
+        <td>
+          <span class="gender" th:text="${user.gender == 0 ? '男性' : '女性'}">男性</span>
+        </td>
+      </tr>
+      <tr>
+        <th>ユーザー名<br /><span class="note">（メールアドレス）</span></th>
+        <td>
+          <span class="userName" th:text="${user.userName}">taro@abc.com</span>
+        </td>
+      </tr>
+      <tr>
+        <th>パスワード</th>
+        <td>
+          <span class="password">******</span>
+          <input type="hidden" id="hiddenPassword" th:value="${user.password}" />
+        </td>
+      </tr>
+      <tr>
+        <th class="buttonArea">
+        </th>
+        <th class="buttonArea">
+          <form action="/team2412/history/">
+            <a href="#" id="resetPassword">パスワード再設定</a>
+            <button id="historyButton">購入履歴</button>
+          </form>
+        </th>
+      </tr>
+    </table>
+  
+  </div>
+
+</main>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+/*
+ * 画面表示時 (onLoad) に動作する処理群
+ */
+document.addEventListener("DOMContentLoaded", event => {
+  /* 実際のパスワードの文字数分 「*」 を表示する */
+  const password = document.getElementById("hiddenPassword").value;
+  makeHiddenPassword(password);
+  
+  document.getElementById("resetPassword").addEventListener("click", () => {
+    const newPassword = prompt("新パスワードを入力してください。");
+    
+    /* フロントエンドで判定できるエラーチェック */
+    const error = checkError(newPassword);
+    if (error.hasError) {
+      alert(error.message);
+      return;
+    }
+    
+    /* バックエンドでのエラー判定 */
+    // JavaにPOST送信するオブジェクトを取得・設定する
+    const postObj = {
+      "userName": document.querySelector("table.myPage span.userName").innerText,
+      "password": document.getElementById("hiddenPassword").value,
+      "newPassword": newPassword
+    };
+    
+    /*
+     * fetch API を使用し、Javaと非同期通信(POST)を行う
+     * SUCCESS時(then)： パスワード再設定の成否メッセージを表示する
+     *　ERROR時(catch)： エラー情報を console に出力する
+     */
+    fetch("/team2412/auth/resetPassword", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(postObj),
+    })
+    .then(response =>  response.text())
+    .then(result => {
+       alert(result);
+      if (result === "パスワードが再設定されました。") {
+        makeHiddenPassword(newPassword);
+      }
+    })
+    .catch(error => {
+      console.error("Error: ", error);
+    });
+    
+  });
+});
+
+/**
+ * パスワードのエラーチェックをおこなう。
+ * @param userName 新パスワード
+ */
+function checkError(newPassword) {
+  
+  /* フロントエンドで判定できるエラーチェック */
+  if (validator.isEmpty(newPassword)) {
+    return { "hasError": true, "message": validateConstants.ERR_MSG.EMPTY };
+  }
+  if (!validator.isHalfAlphanumeric(newPassword)) {
+    return { "hasError": true, "message": validateConstants.ERR_MSG.NOT_ONLY_ALPHANUMERIC };
+  }
+  if (validator.underMin(newPassword, validateConstants.PASSWORD_MIN)) {
+    return { "hasError": true, "message": validateConstants.ERR_MSG.UNDER_MIN };
+  }
+  if (validator.overMax(newPassword, validateConstants.PASSWORD_MAX)) {
+    return { "hasError": true, "message": validateConstants.ERR_MSG.OVER_MAX };
+  }
+  
+  return { "hasError": false };
+}
+
+/**
+ * 実際のパスワードの文字数分 「*」 を表示する
+ * @param 現在のパスワード
+ */
+function makeHiddenPassword(password) {
+  let asters = "*".repeat(password.length);
+
+  document.querySelector("span.password").innerText = asters;
+  
+  // hiddenPasswordのパスワードを変更
+  document.getElementById("hiddenPassword").value = password;
+}
+/*]]>*/
+</script>
+
+</body>
+</html>
